@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using Mono.Cecil;
 
 namespace ILRepacking
@@ -256,6 +258,7 @@ namespace ILRepacking
 
         private void ReadRuntimes(IEnumerable<string> allRuntimes)
         {
+            Thread.Sleep(5000);
             foreach (var directory in allRuntimes)
             {
                 ReadRuntime(directory);
@@ -279,10 +282,30 @@ namespace ILRepacking
                 try
                 {
                     var assemblyName = AssemblyName.GetAssemblyName(filePath);
-                    string fullName = assemblyName.FullName;
-                    if (!assemblyPathsByFullAssemblyName.ContainsKey(fullName))
+
+                    var publicKeyTokenSuffix = "";
+                    
+                    var indexOfPublicKeyToken= assemblyName.FullName.IndexOf(", PublicKeyToken=");
+                    if (indexOfPublicKeyToken > -1)
                     {
-                        assemblyPathsByFullAssemblyName[fullName] = filePath;
+                        publicKeyTokenSuffix = assemblyName.FullName.Substring(indexOfPublicKeyToken);
+                    }
+                    var cultureName = assemblyName.CultureName == "" ? "neutral" : assemblyName.CultureName;
+
+                    for (var buildCounter = assemblyName.Version.Build; buildCounter >= 0; buildCounter--)
+                    {
+                        if (assemblyName.Name == "PresentationFramework")
+                        {
+
+                        }
+                        
+                        //string fullName = assemblyName.FullName;
+                        var fullName = $"{assemblyName.Name}, Version={assemblyName.Version.Major}.{assemblyName.Version.Minor}.{buildCounter}.0, Culture={cultureName}{publicKeyTokenSuffix}";
+                        //Debug.WriteLine(fullName);
+                        if (!assemblyPathsByFullAssemblyName.ContainsKey(fullName))
+                        {
+                            assemblyPathsByFullAssemblyName[fullName] = filePath;
+                        }
                     }
                 }
                 catch
