@@ -45,10 +45,9 @@
     Otherwise these tests don't reflect the impact of latest changes and lead to confusing results. 
     Note: Due to the variety of target frameworks ProjectReferences won't work. -->
     <ItemGroup>
-      <!--<EnsureProjectsBuilt Include="..\ILRepackTool\ILRepackTool.csproj" />-->
       <EnsureProjectsBuilt Include="..\ILRepack.IntegrationTests\Scenarios\*\*.csproj" Exclude="**\AnalyzerWithDependencies.csproj" />
     </ItemGroup>
 
-    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" />
+    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" BuildInParallel="true" />
   </Target>
 </Project>
