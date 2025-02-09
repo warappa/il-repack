@@ -25,6 +25,16 @@
     <ProjectReference Include="..\cecil\symbols\pdb\Mono.Cecil.Pdb.csproj" />
     <ProjectReference Include="..\ILRepack\ILRepack.csproj" />
   </ItemGroup>
+
+  <Target Name="EnsureProjectsBuilt" BeforeTargets="Build" Outputs="EnsureProjectsBuiltResult">
+    <ItemGroup>
+      <EnsureProjectsBuilt Include="..\ILRepackTool\ILRepackTool.csproj" />
+      <EnsureProjectsBuilt Include="..\ILRepack.IntegrationTests\Scenarios\*\*.csproj" Exclude="**\AnalyzerWithDependencies.csproj" />
+    </ItemGroup>
+
+    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="fasterflect" Version="3.0.0" />
     <PackageReference Include="FSharp.Core" Version="8.0.300" />
