@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <PackAsTool>true</PackAsTool>
+    <TargetFrameworks>net472;net8.0</TargetFrameworks>
     <Authors>kzu, Kirill Osenkov</Authors>
     <ToolCommandName>ilrepack</ToolCommandName>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -19,6 +18,19 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/gluck/il-repack</PackageProjectUrl>
   </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <PackAsTool>true</PackAsTool>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <None Include="$(OutputPath)$(AssemblyName).dll" Pack="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
+  <!--<ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">-->
+    <!--<Reference Include="Micosoft.CSharp" />-->
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\ILRepack\**\*.cs" Exclude="..\ILRepack\Properties\AssemblyInfo.cs;..\ILRepack\bin\**\*.*;..\ILRepack\obj\**\*.*;" />
