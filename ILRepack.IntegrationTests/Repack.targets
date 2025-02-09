@@ -1,8 +1,13 @@
 <Project>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\ILRepack\ILRepack.csproj" ReferenceOutputAssembly="false" OutputItemType="ILRepackExe" />
-  </ItemGroup>
+  <Target Name="EnsureProjectsBuilt" BeforeTargets="Build" Outputs="EnsureProjectsBuiltResult">
+    <!-- This target calls ILRepackTool to repack this assembly. Therefore it needs to be ensured that this is actually built. -->
+    <ItemGroup>
+      <EnsureProjectsBuilt Include="..\..\..\ILRepackTool\ILRepackTool.csproj" />
+    </ItemGroup>
+
+    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" />
+  </Target>
 
   <Target Name="GatherInputs">
     <ItemGroup>
@@ -20,7 +25,26 @@
     <PropertyGroup>
       <ILRepackVerboseArgument Condition="$(ILRepackVerbose) == true"> /verbose</ILRepackVerboseArgument>
     </PropertyGroup>
-    <Exec Command="&quot;@(ILRepackExe)&quot; $(ILRepackExtraArgs)$(ILRepackVerboseArgument) /log /out:$(TargetDir)merged\$(TargetFileName) $(TargetFileName) @(ILRepackInput->'%(Filename)%(Extension)', ' ')"
+
+    <MSBuild Projects="..\..\..\ILRepackTool\ILRepackTool.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);OutputType=Exe"
+             BuildInParallel="false"
+             RebaseOutputs="true"
+             >
+      <Output TaskParameter="TargetOutputs" ItemName="ILRepackExe" />
+      <!--<Output TaskParameter="OutputAssembly" ItemName="ILRepackExe" />-->
+    </MSBuild>
+
+    <Message Text="MSBuild TargetOutputs: %(ILRepackExe.Identity)" Importance="High"/>
+    <Message Text="Filename: %(ILRepackExe.Filename)" Importance="High" />
+    <Message Text="Extension: %(ILRepackExe.Extension)" Importance="High" />
+    <Message Text="Full Path: %(ILRepackExe.FullPath)" Importance="High" />
+    
+    <PropertyGroup>
+      <ILRepackExePath>$([System.IO.Path]::ChangeExtension(%(ILRepackExe.Identity), '.exe'))</ILRepackExePath>
+    </PropertyGroup>
+    <Exec Command="&quot;$(ILRepackExePath)&quot; $(ILRepackExtraArgs)$(ILRepackVerboseArgument) /log /out:$(TargetDir)merged\$(TargetFileName) $(TargetFileName) @(ILRepackInput->'%(Filename)%(Extension)', ' ')"
         WorkingDirectory="$(TargetDir)"
         ConsoleToMSBuild="True" />
     <Copy Condition="Exists('$(ProjectRuntimeConfigFilePath)')"
