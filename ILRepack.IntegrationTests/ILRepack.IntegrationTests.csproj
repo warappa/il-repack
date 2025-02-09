@@ -25,16 +25,6 @@
     <ProjectReference Include="..\cecil\symbols\pdb\Mono.Cecil.Pdb.csproj" />
     <ProjectReference Include="..\ILRepack\ILRepack.csproj" />
   </ItemGroup>
-
-  <Target Name="EnsureProjectsBuilt" BeforeTargets="Build" Outputs="EnsureProjectsBuiltResult">
-    <ItemGroup>
-      <EnsureProjectsBuilt Include="..\ILRepackTool\ILRepackTool.csproj" />
-      <EnsureProjectsBuilt Include="..\ILRepack.IntegrationTests\Scenarios\*\*.csproj" Exclude="**\AnalyzerWithDependencies.csproj" />
-    </ItemGroup>
-
-    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" />
-  </Target>
-
   <ItemGroup>
     <PackageReference Include="fasterflect" Version="3.0.0" />
     <PackageReference Include="FSharp.Core" Version="8.0.300" />
@@ -48,4 +38,17 @@
     <PackageReference Include="System.Reactive" Version="6.0.1" />
     <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
   </ItemGroup>
+  
+  <Target Name="EnsureProjectsBuilt" BeforeTargets="Build" Outputs="EnsureProjectsBuiltResult">
+    <!-- For the scenario integration tests to provide accurate results, we need to be sure 
+    that all relevant projects are up-to-date or built again if necessary before the tests run.
+    Otherwise these tests don't reflect the impact of latest changes and lead to confusing results. 
+    Note: Due to the variety of target frameworks ProjectReferences won't work. -->
+    <ItemGroup>
+      <EnsureProjectsBuilt Include="..\ILRepackTool\ILRepackTool.csproj" />
+      <EnsureProjectsBuilt Include="..\ILRepack.IntegrationTests\Scenarios\*\*.csproj" Exclude="**\AnalyzerWithDependencies.csproj" />
+    </ItemGroup>
+
+    <MSBuild Projects="@(EnsureProjectsBuilt)" Targets="Build" />
+  </Target>
 </Project>
