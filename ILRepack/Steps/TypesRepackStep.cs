@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using Mono.Cecil;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Mono.Cecil.Cil;
 
 namespace ILRepacking.Steps
 {
@@ -49,6 +50,177 @@ namespace ILRepacking.Steps
                     .ToList();
         }
 
+
+        /// <summary>
+        /// Sucht in allen übergebenen Assemblys nach einer statischen Methode namens "<Module>" in der Klasse "<Module>"
+        /// und fügt in der Haupt-Assembly einen neuen Module-Initializer ein, der alle gefundenen Methoden aufruft.
+        /// </summary>
+        /// <param name="mainAssembly">Die Assembly, in der der kombinierte Module-Initializer angelegt wird.</param>
+        /// <param name="assemblies">Die Assemblys, aus denen die Module-Initializer eingesammelt werden.</param>
+        static void MergeModuleInitializers(IEnumerable<ModuleDefinition> modulesToMerge, ModuleDefinition mainModule)
+        {
+            // Stelle sicher, dass die Haupt-Assembly nicht in der Liste enthalten ist.
+
+
+            // Hole oder lege den Typ "<Module>" in der Haupt-Assembly an
+            //var mainModule = mainAssembly.MainModule;
+            var moduleType = mainModule.Types.FirstOrDefault(t => t.Name == "<Module>");
+            if (moduleType == null)
+            {
+                moduleType = new TypeDefinition(
+                    string.Empty,
+                    "<Module>",
+                    TypeAttributes.NotPublic | TypeAttributes.AutoClass | TypeAttributes.AnsiClass | TypeAttributes.BeforeFieldInit,
+                    mainModule.TypeSystem.Object
+                );
+                mainModule.Types.Add(moduleType);
+            }
+
+            // Entferne ggf. einen bereits vorhandenen Module-Initializer in der Haupt-Assembly
+            var existingInitializer = moduleType.Methods.FirstOrDefault(m => m.Name == ".cctor");
+            if (existingInitializer != null)
+            {
+                moduleType.Methods.Remove(existingInitializer);
+            }
+
+            // Erzeuge den neuen Module-Initializer: static, parameterlos, void
+            var newInitializer = new MethodDefinition(
+                ".cctor",
+                MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                mainModule.TypeSystem.Void
+            );
+
+            // Füge das ModuleInitializer-Attribut hinzu – falls noch nicht vorhanden, legen wir es an
+            //var moduleInitializerAttrCtor = mainModule.ImportReference(typeof(System.Runtime.CompilerServices.ModuleInitializerAttribute).GetConstructor(Type.EmptyTypes));
+            //newInitializer.CustomAttributes.Add(new CustomAttribute(moduleInitializerAttrCtor));
+
+            // Erstelle den Methodenkörper
+            var il = newInitializer.Body.GetILProcessor();
+
+            // Für jede zusätzliche Assembly: suche die statische "<Module>"-Methode und füge einen Aufruf ein
+            foreach (var module in modulesToMerge)
+            {
+                // Suche in der Assembly den Typ "<Module>"
+                var asmModuleType = module.Types.FirstOrDefault(t => t.Name == "<Module>");
+                if (asmModuleType == null)
+                    continue;
+
+                // Suche die Methode "<Module>" (die Module-Initializer-Methode)
+                var asmInitializer = asmModuleType.Methods.FirstOrDefault(m => m.Name == ".cctor" && m.IsStatic);
+                if (asmInitializer == null)
+                    continue;
+
+                var body = asmInitializer.Body;
+                var map = new Dictionary<Instruction, Instruction>();
+
+                foreach (var instruction in body.Instructions)
+                {
+                    Instruction newInstruction;// = Instruction.Create(instruction.OpCode);
+                    //newInstruction.Operand = instruction.Operand;
+                    if (instruction.Operand is MethodReference methodRef)
+                    {
+                        newInstruction = Instruction.Create(instruction.OpCode, mainModule.ImportReference(methodRef));
+                        //newInstruction.Operand = mainModule.ImportReference(methodRef);
+                    }
+                    else if (instruction.Operand is FieldReference fieldRef)
+                    {
+                        newInstruction = Instruction.Create(instruction.OpCode, mainModule.ImportReference(fieldRef));
+                        //newInstruction.Operand = mainModule.ImportReference(fieldRef);
+                    }
+                    else if (instruction.Operand is TypeReference typeRef)
+                    {
+                        newInstruction = Instruction.Create(instruction.OpCode, mainModule.ImportReference(typeRef));
+                        //newInstruction.Operand = mainModule.ImportReference(typeRef);
+                    }
+                    else if (instruction.OpCode == OpCodes.Ret)
+                    {
+                        // skip
+                        continue;
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                    map[instruction] = newInstruction;
+                }
+
+                foreach (var pair in map)
+                {
+                    if (pair.Key.Operand is Instruction targetInstruction)
+                    {
+                        pair.Value.Operand = map[targetInstruction];
+                    }
+                    il.Append(pair.Value);
+                }
+
+                asmModuleType.Methods.Remove(asmInitializer);
+
+                //// Importiere die Methode in den Kontext der Haupt-Assembly
+                //var importedMethod = mainModule.ImportReference(asmInitializer);
+
+                //// Füge einen Call-Aufruf zum IL-Stream hinzu
+                //il.Append(il.Create(OpCodes.Call, importedMethod));
+            }
+
+            // Füge ein Ret (Return) hinzu
+            il.Append(il.Create(OpCodes.Ret));
+
+            // Füge den neuen Module-Initializer der "<Module>"-Klasse der Haupt-Assembly hinzu
+            moduleType.Methods.Add(newInitializer);
+        }
+
+        /// <summary>
+        /// Sucht im Modul nach dem Typ "ModuleInitializerAttribute" und gibt die Parameterlose Konstruktorreferenz zurück.
+        /// Falls der Typ nicht existiert, wird er angelegt.
+        /// </summary>
+        /// <param name="module">Das ModuleDefinition, in dem gesucht bzw. angelegt wird.</param>
+        /// <returns>Eine MethodReference auf den parameterlosen Konstruktor des ModuleInitializerAttribute.</returns>
+        static MethodReference GetModuleInitializerAttributeConstructor(ModuleDefinition module)
+        {
+            // Sucht in den Typen des Moduls
+            var attrType = module.Types.FirstOrDefault(t => t.Name == "ModuleInitializerAttribute");
+            if (attrType == null)
+            {
+                // Lege den Typ "ModuleInitializerAttribute" unter dem Namespace "System.Runtime.CompilerServices" an
+                attrType = new TypeDefinition(
+                    "System.Runtime.CompilerServices",
+                    "ModuleInitializerAttribute",
+                    TypeAttributes.Public | TypeAttributes.Sealed,
+                    module.ImportReference(typeof(System.Attribute))
+                );
+                module.Types.Add(attrType);
+
+                // Erzeuge den parameterlosen Konstruktor
+                var ctor = new MethodDefinition(
+                    ".ctor",
+                    MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                    module.TypeSystem.Void
+                );
+
+                // IL: ldarg.0 -> call instance void [mscorlib]System.Object::.ctor() -> ret
+                var il = ctor.Body.GetILProcessor();
+                il.Append(il.Create(OpCodes.Ldarg_0));
+                var objectCtor = module.ImportReference(typeof(object).GetConstructor(new Type[0]));
+                il.Append(il.Create(OpCodes.Call, objectCtor));
+                il.Append(il.Create(OpCodes.Ret));
+
+                attrType.Methods.Add(ctor);
+                return ctor;
+            }
+            else
+            {
+                // Falls der Typ bereits existiert, suche den parameterlosen Konstruktor
+                var ctor = attrType.Methods.FirstOrDefault(m => m.IsConstructor && !m.HasParameters);
+                if (ctor != null)
+                    return module.ImportReference(ctor);
+            }
+
+            return null;
+
+
+        }
+
+
         public void Perform()
         {
             RepackTypes();
@@ -60,6 +232,9 @@ namespace ILRepacking.Steps
             _logger.Verbose("Processing types");
 
             // merge types, this differs between 'primary' and 'other' assemblies regarding internalizing
+
+            var otherModules = _repackContext.OtherAssemblies.SelectMany(x => x.Modules).ToArray();
+            MergeModuleInitializers(otherModules, _repackContext.TargetAssemblyMainModule);
 
             foreach (var r in _repackContext.PrimaryAssemblyDefinition.Modules.SelectMany(x => x.Types))
             {

@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "AvaloniaApplication": {
+      "commandName": "Project"
+    },
+    "Profile 1": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "commandLineArgs": "C:\\Users\\WarappaLocal\\source\\il-repack-warappa\\ILRepack.IntegrationTests\\Scenarios\\AvaloniaApplication\\bin\\Debug\\net9.0\\merged\\AvaloniaApplication.dll",
+      "workingDirectory": "C:\\Users\\WarappaLocal\\source\\il-repack-warappa\\ILRepack.IntegrationTests\\Scenarios\\AvaloniaApplication\\bin\\Debug\\net9.0\\merged\\"
+    }
+  }
+}

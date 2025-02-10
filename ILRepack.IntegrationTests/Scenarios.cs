@@ -36,6 +36,13 @@ namespace ILRepack.IntegrationTests
             RunScenario("WPFThemingAndLibraryStyles");
         }
 
+
+        [Test]
+        public void GivenAvaloniaApplication_MergedApplicationRunsSuccessfully()
+        {
+            RunScenario("AvaloniaApplication");
+        }
+
         [Test]
         public void GivenSampleApplicationWithMahAppsAndSystemWindowsInteractivityWPF_MergedWPFApplicationRunsSuccessfully()
         {
