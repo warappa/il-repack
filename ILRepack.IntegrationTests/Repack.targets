@@ -4,6 +4,12 @@
     <ProjectReference Include="..\..\..\ILRepack\ILRepack.csproj" ReferenceOutputAssembly="false" OutputItemType="ILRepackExe" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!-- Required, so that a change in ILRepack (ProjectReference) is actually forcing a build in the project referencing this file.
+    If no updates are found it will be handled as up-to-date. This check is actually still fast. -->
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+  </PropertyGroup>
+
   <Target Name="GatherInputs">
     <ItemGroup>
       <ILRepackInput Include="$(TargetDir)\*.dll" />
