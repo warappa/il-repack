@@ -42,7 +42,7 @@
   <Target Name="EnsureProjectsBuilt" BeforeTargets="Build" Outputs="EnsureProjectsBuiltResult">
     <!-- For the scenario integration tests to provide accurate results, we need to be sure 
     that all relevant projects are up-to-date or built again if necessary before the tests run.
-    Otherwise these tests don't reflect the impact of latest changes and lead to confusing results. 
+    Otherwise these tests don't reflect the effects of the latest changes and lead to confusing results. 
     Note: Due to the variety of target frameworks ProjectReferences won't work. -->
     <ItemGroup>
       <EnsureProjectsBuilt Include="..\ILRepack.IntegrationTests\Scenarios\*\*.csproj" Exclude="**\AnalyzerWithDependencies.csproj" />
